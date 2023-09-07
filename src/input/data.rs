@@ -16,6 +16,10 @@ impl Row {
     }
 
     pub fn get_len_with_offset(&self, offset: usize) -> usize {
+        if offset > self.contents.len() {
+            return self.contents.len();
+        }
+
         self.contents[..offset].chars().fold(0, |acc, current| {
             acc + if current == '\t' {
                 (TAB_SIZE - 1) - (acc % TAB_SIZE) + 1

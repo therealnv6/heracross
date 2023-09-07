@@ -1,7 +1,9 @@
 use std::time::Duration;
 
+use bevy_ecs::system::Resource;
 use crossterm::event::{self, Event, KeyEvent};
 
+#[derive(Resource)]
 pub struct InputReader;
 
 impl InputReader {

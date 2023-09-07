@@ -1,12 +1,12 @@
 use std::fmt::Display;
 
-use bevy_ecs::system::Resource;
-use crossterm::{
-    event::{KeyCode, KeyModifiers},
-    terminal,
+use bevy_ecs::{
+    event::{Event, EventReader, EventWriter},
+    system::{ResMut, Resource},
 };
+use crossterm::event::{KeyCode, KeyModifiers};
 
-use crate::output::Output;
+use crate::cursor::CursorMoveEvent;
 
 use self::reader::InputReader;
 
@@ -20,53 +20,43 @@ pub enum InputMode {
     Normal,
 }
 
-pub struct Input {
-    reader: InputReader,
-    mode: InputMode,
-    output: Output,
+#[derive(Event, Default)]
+pub struct QuitWriter;
+
+pub fn process_input(
+    reader: ResMut<InputReader>,
+    mut quit_writer: EventWriter<QuitWriter>,
+    mut cursor_move_writer: EventWriter<CursorMoveEvent>,
+    mut input_mode: ResMut<InputMode>,
+) {
+    let event = reader.read_key().expect("Could not read input!");
+
+    match (event.code, event.modifiers, *input_mode) {
+        (KeyCode::Char('q'), KeyModifiers::CONTROL, InputMode::Normal) => {
+            quit_writer.send_default();
+            return;
+        }
+        (KeyCode::Char('i'), KeyModifiers::NONE, InputMode::Normal) => {
+            *input_mode = InputMode::Insert;
+        }
+        (KeyCode::Esc, KeyModifiers::NONE, _) => {
+            *input_mode = InputMode::Normal;
+        }
+        (
+            KeyCode::Char(val @ ('h' | 'j' | 'k' | 'l')),
+            KeyModifiers::NONE,
+            // only move when in either normal or input mode
+            InputMode::Visual | InputMode::Normal,
+        ) => cursor_move_writer.send(CursorMoveEvent::from(val)),
+        _ => {
+            println!("{:?}, {:?}", event.code, event.modifiers);
+        }
+    }
 }
 
-impl Input {
-    pub fn new() -> Self {
-        terminal::enable_raw_mode().expect("Could not disable raw mode");
-
-        Self {
-            mode: InputMode::Normal,
-            reader: InputReader,
-            output: Output::new(),
-        }
-    }
-
-    pub fn run(&mut self) -> Result<bool, std::io::Error> {
-        self.output.refresh()?;
-        self.process_input()
-    }
-
-    fn process_input(&mut self) -> Result<bool, std::io::Error> {
-        let event = self.reader.read_key()?;
-
-        match (event.code, event.modifiers, self.mode) {
-            (KeyCode::Char('q'), KeyModifiers::CONTROL, InputMode::Normal) => return Ok(false),
-            (KeyCode::Char('i'), KeyModifiers::NONE, InputMode::Normal) => {
-                self.mode = InputMode::Insert;
-            }
-            (KeyCode::Esc, KeyModifiers::NONE, _) => {
-                self.mode = InputMode::Normal;
-            }
-            (
-                KeyCode::Char(val @ ('h' | 'j' | 'k' | 'l')),
-                KeyModifiers::NONE,
-                // only move when in either normal or input mode
-                InputMode::Visual | InputMode::Normal,
-            ) => {
-                self.output.move_cursor(val);
-            }
-            _ => {
-                println!("{:?}, {:?}", event.code, event.modifiers);
-            }
-        }
-
-        Ok(true)
+pub fn quit(mut events: EventReader<QuitWriter>) {
+    for _ in events.iter() {
+        panic!();
     }
 }
 
@@ -81,15 +71,5 @@ impl Display for InputMode {
                 InputMode::Visual => "[visual]",
             }
         )
-    }
-}
-
-impl Drop for Input {
-    fn drop(&mut self) {
-        self.output
-            .clear()
-            .expect("Couldn't clear screen, did something go wrong during shutdown?");
-
-        terminal::disable_raw_mode().expect("Could not disable raw mode");
     }
 }
