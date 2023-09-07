@@ -1,5 +1,8 @@
 use std::io::{self, stdout};
 
+use bevy_ecs::system::Resource;
+
+#[derive(Resource, Clone)]
 pub struct OutputBuffer {
     content: String,
 }

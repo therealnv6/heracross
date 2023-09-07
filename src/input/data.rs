@@ -1,22 +1,88 @@
 use std::{fs, path::Path};
 
+use bevy_ecs::system::Resource;
+
+pub const TAB_SIZE: usize = 4;
+
+#[derive(Clone)]
+pub struct Row {
+    contents: Box<str>,
+    render: String,
+}
+
+impl Row {
+    fn new(contents: Box<str>, render: String) -> Self {
+        Self { contents, render }
+    }
+
+    pub fn get_len_with_offset(&self, offset: usize) -> usize {
+        self.contents[..offset].chars().fold(0, |acc, current| {
+            acc + if current == '\t' {
+                (TAB_SIZE - 1) - (acc % TAB_SIZE) + 1
+            } else {
+                1
+            }
+        })
+    }
+}
+
+#[derive(Clone, Resource)]
 pub struct RowBuffer {
-    row_contents: Vec<Box<str>>,
+    rows: Vec<Row>,
 }
 
 impl RowBuffer {
     pub fn new() -> Self {
-        Self {
-            row_contents: Vec::new(),
+        Self { rows: Vec::new() }
+    }
+
+    pub fn render_row_at(&mut self, y: usize) {
+        let row = self.rows.get_mut(y);
+
+        if let Some(row) = row {
+            Self::render_row(row);
         }
     }
 
-    pub fn rows_count(&self) -> usize {
-        self.row_contents.len()
+    pub fn render_row(row: &mut Row) {
+        // Calculate the capacity needed for the `render` String
+        let capacity = row
+            .contents
+            .chars()
+            .map(|c| if c == '\t' { TAB_SIZE } else { 1 })
+            .sum();
+
+        // Create the `render` String with the calculated capacity
+        row.render = String::with_capacity(capacity);
+
+        // Iterate over the characters in `contents`
+        for current in row.contents.chars() {
+            if current == '\t' {
+                // Replace tabs with spaces
+                row.render.push(' ');
+
+                // Calculate the number of spaces needed to reach the next tab stop
+                let next_tab_diff = TAB_SIZE - (row.render.len() % TAB_SIZE);
+
+                // Append the required number of spaces
+                (0..next_tab_diff).for_each(|_| row.render.push(' '));
+            } else {
+                // Copy other characters as-is
+                row.render.push(current);
+            }
+        }
     }
 
-    pub fn get_row(&self, row_num: usize) -> &str {
-        &self.row_contents[row_num]
+    pub fn get_render(&self, y: usize) -> &String {
+        &self.rows[y].render
+    }
+
+    pub fn get_row_at(&self, y: usize) -> &Row {
+        &self.rows[y]
+    }
+
+    pub fn rows_count(&self) -> usize {
+        self.rows.len()
     }
 }
 
@@ -27,7 +93,15 @@ impl TryFrom<&Path> for RowBuffer {
         let contents = fs::read_to_string(value)?;
 
         Ok(Self {
-            row_contents: contents.lines().map(|it| it.into()).collect(),
+            rows: contents
+                .lines()
+                .map(|it| {
+                    let mut row = Row::new(it.into(), it.to_string());
+
+                    Self::render_row(&mut row);
+                    return row;
+                })
+                .collect(),
         })
     }
 }
