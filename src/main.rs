@@ -35,10 +35,13 @@ fn main() -> Result<()> {
     // output-systems
     schedule.add_systems(
         (
-            cursor::hide::dispatch_hide, // hide the cursor before doing anything
+            // hide the cursor before doing anything
+            cursor::hide::dispatch_hide.before(output::clear),
             output::clear,
             output::draw_rows,
-            status::draw::draw_status_bar,
+            // because the order of systems is not the same as register order, we want to make sure
+            // to always run this after draw_rows is called.
+            status::draw::draw_status_bar.after(output::draw_rows),
         )
             .in_set(SystemType::Output),
     );
@@ -65,6 +68,8 @@ fn main() -> Result<()> {
     // insert output resources
     world.insert_resource(OutputSize::default());
     world.insert_resource(OutputBuffer::new());
+
+    // hardcoded for now, easier for debugging.
     world.insert_resource(
         RowBuffer::try_from(Path::new(
             "/home/riven/projects/rust/heracross/src/output/mod.rs",

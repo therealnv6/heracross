@@ -33,11 +33,15 @@ impl Row {
 #[derive(Clone, Resource)]
 pub struct RowBuffer {
     rows: Vec<Row>,
+    name: String,
 }
 
 impl RowBuffer {
     pub fn new() -> Self {
-        Self { rows: Vec::new() }
+        Self {
+            rows: Vec::new(),
+            name: String::from("Empty Buffer"),
+        }
     }
 
     pub fn render_row_at(&mut self, y: usize) {
@@ -46,6 +50,10 @@ impl RowBuffer {
         if let Some(row) = row {
             Self::render_row(row);
         }
+    }
+
+    pub fn get_buffer_name(&self) -> &str {
+        return &self.name;
     }
 
     pub fn render_row(row: &mut Row) {
@@ -77,6 +85,10 @@ impl RowBuffer {
         }
     }
 
+    pub fn get_char_count(&self) -> usize {
+        return self.rows.iter().map(|row| row.contents.len()).sum();
+    }
+
     pub fn get_render(&self, y: usize) -> &String {
         &self.rows[y].render
     }
@@ -97,6 +109,11 @@ impl TryFrom<&Path> for RowBuffer {
         let contents = fs::read_to_string(value)?;
 
         Ok(Self {
+            name: value
+                .file_name()
+                .expect("Could not get file name from path")
+                .to_string_lossy()
+                .to_string(),
             rows: contents
                 .lines()
                 .map(|it| {

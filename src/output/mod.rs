@@ -43,24 +43,7 @@ pub fn draw_rows(
         let row = current + cursor_offset.row;
 
         if rows.rows_count() == 0 || row >= rows.rows_count() {
-            if current == row_size / 3 {
-                let mut welcome = String::from("Heracross");
-                if welcome.len() > row_size {
-                    welcome.truncate(row_size)
-                }
-
-                let mut padding = (columns - welcome.len()) / 2;
-
-                if padding != 0 {
-                    buffer.push('~');
-                    padding -= 1;
-                }
-
-                (0..padding).for_each(|_| buffer.push(' '));
-                buffer.push_str(&welcome);
-            } else {
-                buffer.push('~');
-            }
+            buffer.push('~');
         } else {
             let row = rows.get_render(row);
 
@@ -78,12 +61,12 @@ pub fn draw_rows(
         queue!(buffer, terminal::Clear(ClearType::UntilNewLine)).unwrap();
 
         buffer.push_str("\r\n");
-        stdout().flush().expect("Could not flush stdout!");
     }
 }
 
 pub fn flush_buffer(mut buffer: ResMut<OutputBuffer>) {
     buffer.flush().expect("Could not flush buffer!");
+    stdout().flush().expect("Could not flush stdout!");
 }
 
 pub fn clear() {
